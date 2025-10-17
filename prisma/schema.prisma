@@ -1,0 +1,72 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Tournament {
+  id        String   @id @default(cuid())
+  name      String
+  category  String
+  year      Int
+  size      Int
+  uid       String   @unique
+  opLinked  Boolean  @default(false)
+  opEndpointBase String?
+  challongeTournamentId String?
+  createdAt DateTime @default(now())
+
+  participants Participant[]
+  matches      Match[]
+  drawNodes    DrawNode[]
+}
+
+model Participant {
+  id          String   @id @default(cuid())
+  name        String
+  no          Int
+  seed        Int?
+  club        String?
+  challongeParticipantId Int?
+  tournament  Tournament @relation(fields: [tournamentId], references: [id])
+  tournamentId String
+  drawNodes   DrawNode[]
+}
+
+model DrawNode {
+  id            String   @id @default(cuid())
+  tournament    Tournament @relation(fields: [tournamentId], references: [id])
+  tournamentId  String
+  roundIndex    Int
+  position      Int
+  participant   Participant? @relation(fields: [participantId], references: [id])
+  participantId String?
+  isBye         Boolean @default(false)
+}
+
+model Match {
+  id           String   @id @default(cuid())
+  roundIndex   Int
+  roundName    String
+  // legacy side refs for existing code paths
+  sideAId      String?
+  sideBId      String?
+  // new node references
+  nodeAId      String?
+  nodeBId      String?
+  scoreA       String?
+  scoreB       String?
+  winnerId     String?
+  nextMatchId  String?
+  winnerToSide String?
+  scheduledAt  DateTime?
+  court        String?
+  opMemo       String?
+  challongeMatchId Int?
+  tournament   Tournament @relation(fields: [tournamentId], references: [id])
+  tournamentId String
+  createdAt    DateTime @default(now())
+}
