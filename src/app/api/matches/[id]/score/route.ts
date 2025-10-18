@@ -2,12 +2,12 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { updateMatchScore } from "@/lib/brackets";
 
-export async function POST(
-  req: Request,
-  { params }: { params: { id: string } }
-) {
+export async function POST(req: Request) {
   try {
-    const matchId = params?.id;
+    // Derive dynamic route param from URL to avoid type issues in some deploy targets
+    const url = new URL(req.url);
+    const m = url.pathname.match(/\/api\/matches\/([^/]+)\/score/);
+    const matchId = m?.[1];
     if (!matchId) {
       return NextResponse.json({ error: "match id is required" }, { status: 400 });
     }
