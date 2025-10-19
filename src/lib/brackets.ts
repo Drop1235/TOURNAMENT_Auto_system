@@ -159,6 +159,14 @@ async function setMatchWinnerByBye(matchId: string, winnerId: string) {
   }
 }
 
+export async function setByeForSide(matchId: string, side: "A" | "B") {
+  const m = await prisma.match.findUnique({ where: { id: matchId } });
+  if (!m) throw new Error("match not found");
+  const winnerId = side === "A" ? m.sideBId : m.sideAId;
+  if (!winnerId) throw new Error("opponent is empty; cannot advance");
+  await setMatchWinnerByBye(matchId, winnerId);
+}
+
 export async function initSingleElim(
   tournamentId: string,
   participants: InitParticipant[],

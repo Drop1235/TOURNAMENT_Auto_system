@@ -122,6 +122,20 @@ function BracketPageInner() {
       ordered.set(r, ord);
     }
 
+  async function setBye(matchId: string, side: "A" | "B") {
+    const res = await fetch("/api/draw/bye", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ matchId, side }),
+    });
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({} as any));
+      alert(j?.error || "BYE 設定に失敗しました");
+      return;
+    }
+    await mutate();
+  }
+
     // Assign positions: round 0 stacked; following rounds use average Y of predecessors
     // X positions are cumulative widths per column
     const colXOf = (ridx: number) =>
@@ -377,6 +391,7 @@ function BracketPageInner() {
                         onSaved={() => mutate()}
                         onDropPlace={placeParticipant}
                         onUnplace={unplaceParticipant}
+                        onSetBye={setBye}
                         category={effectiveCategory || data.tournament.category}
                       />
                     </div>
@@ -397,6 +412,7 @@ function MatchBox({
   onSaved,
   onDropPlace,
   onUnplace,
+  onSetBye,
   category,
 }: {
   match: BracketData["matches"][number];
@@ -404,6 +420,7 @@ function MatchBox({
   onSaved: () => void;
   onDropPlace: (matchId: string, side: "A" | "B", participantId: string) => Promise<void>;
   onUnplace: (matchId: string, side: "A" | "B") => Promise<void>;
+  onSetBye: (matchId: string, side: "A" | "B") => Promise<void>;
   category?: string;
 }) {
   const aP = match.sideAId ? byId.get(match.sideAId) : undefined;
@@ -471,9 +488,9 @@ function MatchBox({
       >
         <div className="w-10 text-xs text-gray-600 px-2 shrink-0">{typeof aP?.no === "number" ? aP.no : ""}</div>
         <div className={`flex-1 min-w-0 text-sm ${aWin ? "font-semibold" : "text-gray-700"}`}>
-          <span className="block truncate">{a || "TBD"}</span>
+          <span className="block truncate">{a || (b ? "BYE" : "TBD")}</span>
         </div>
-        {aP && (
+        {aP ? (
           <button
             type="button"
             onClick={() => onUnplace(match.id, "A")}
@@ -481,6 +498,15 @@ function MatchBox({
             title="未配置に戻す"
           >
             戻す
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => onSetBye(match.id, "A")}
+            className="text-xs px-2 py-1 bg-amber-200 rounded hover:bg-amber-300 mr-1 shrink-0"
+            title="空き枠をBYEとして相手を自動勝ち上がり"
+          >
+            BYE
           </button>
         )}
         <div className={`w-8 text-center text-sm mx-1 rounded shrink-0 ${aWin ? "bg-yellow-300" : "bg-gray-200"}`}>{tA || (a ? 0 : "")}</div>
@@ -498,9 +524,9 @@ function MatchBox({
       >
         <div className="w-10 text-xs text-gray-600 px-2 shrink-0">{typeof bP?.no === "number" ? bP.no : ""}</div>
         <div className={`flex-1 min-w-0 text-sm ${bWin ? "font-semibold" : "text-gray-700"}`}>
-          <span className="block truncate">{b || "TBD"}</span>
+          <span className="block truncate">{b || (a ? "BYE" : "TBD")}</span>
         </div>
-        {bP && (
+        {bP ? (
           <button
             type="button"
             onClick={() => onUnplace(match.id, "B")}
@@ -508,6 +534,15 @@ function MatchBox({
             title="未配置に戻す"
           >
             戻す
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => onSetBye(match.id, "B")}
+            className="text-xs px-2 py-1 bg-amber-200 rounded hover:bg-amber-300 mr-1 shrink-0"
+            title="空き枠をBYEとして相手を自動勝ち上がり"
+          >
+            BYE
           </button>
         )}
         <div className={`w-8 text-center text-sm mx-1 rounded shrink-0 ${bWin ? "bg-yellow-300" : "bg-gray-200"}`}>{tB || (b ? 0 : "")}</div>
