@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 
 import useSWR from "swr";
 import { useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 
 type BracketData = {
   tournament: { id: string; name: string };
@@ -16,6 +16,14 @@ const fetcher = (url: string) => fetch(url).then((r) => {
 });
 
 export default function AdminPage() {
+  return (
+    <Suspense fallback={<main className="min-h-screen p-6"><p>読み込み中...</p></main>}>
+      <AdminPageInner />
+    </Suspense>
+  );
+}
+
+function AdminPageInner() {
   const sp = useSearchParams();
   const t = sp.get("t") || sp.get("tournamentId") || "";
 
