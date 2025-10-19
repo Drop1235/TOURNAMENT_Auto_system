@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 export default function Home() {
   const router = useRouter();
   const [name, setName] = useState("");
+  const [category, setCategory] = useState("");
   const [csvText, setCsvText] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -68,7 +69,7 @@ export default function Home() {
       const bRes = await fetch("/api/bracket/init", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tournamentName: name.trim(), participants }),
+        body: JSON.stringify({ tournamentName: name.trim(), category: category.trim(), participants }),
       });
       if (!bRes.ok) throw new Error(await bRes.text());
       const { tournamentId } = await bRes.json();
@@ -84,7 +85,7 @@ export default function Home() {
 
   return (
     <main className="min-h-screen p-6 space-y-6">
-      <h1 className="text-2xl font-semibold">トーナメント初期化</h1>
+      <h1 className="text-2xl font-semibold">トーナメント設定</h1>
 
       <div className="space-y-2">
         <label className="block text-sm font-medium">大会名</label>
@@ -93,6 +94,16 @@ export default function Home() {
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="大会名を入力"
+        />
+      </div>
+
+      <div className="space-y-2">
+        <label className="block text-sm font-medium">カテゴリ（任意）</label>
+        <input
+          className="w-full border rounded px-3 py-2"
+          value={category}
+          onChange={(e) => setCategory(e.target.value)}
+          placeholder="例: 男子シングルス 35歳以上"
         />
       </div>
 

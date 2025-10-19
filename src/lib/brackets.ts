@@ -76,9 +76,9 @@ function slugify(s: string) {
     .replace(/^-+|-+$/g, "");
 }
 
-async function ensureTournament(tournamentId: string, name: string, size: number) {
+async function ensureTournament(tournamentId: string, name: string, size: number, categoryInput?: string) {
   const year = new Date().getFullYear();
-  const category = "General";
+  const category = (categoryInput && categoryInput.trim()) ? categoryInput.trim() : "General";
   const uid = `${slugify(name)}_${slugify(category)}_${year}`;
   const t = await prisma.tournament.upsert({
     where: { id: tournamentId },
@@ -162,11 +162,12 @@ async function setMatchWinnerByBye(matchId: string, winnerId: string) {
 export async function initSingleElim(
   tournamentId: string,
   participants: InitParticipant[],
-  tournamentName: string
+  tournamentName: string,
+  category?: string
 ) {
   const valid = participants.filter((p) => !!p && typeof p.seed === "number");
   const size = valid.length;
-  await ensureTournament(tournamentId, tournamentName, size);
+  await ensureTournament(tournamentId, tournamentName, size, category);
   await upsertParticipants(tournamentId, valid);
   await createSingleElimMatches(tournamentId, valid);
 }

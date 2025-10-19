@@ -6,6 +6,7 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     const tournamentName: string = body?.tournamentName;
+    const category: string | undefined = body?.category;
     const participants: { id: string; name: string; seed: number }[] = body?.participants ?? [];
 
     if (!tournamentName || !Array.isArray(participants) || participants.length === 0) {
@@ -13,7 +14,7 @@ export async function POST(req: Request) {
     }
 
     const tournamentId = cuid();
-    await initSingleElim(tournamentId, participants, tournamentName);
+    await initSingleElim(tournamentId, participants, tournamentName, category);
 
     return NextResponse.json({ tournamentId });
   } catch (e: any) {
