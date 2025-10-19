@@ -48,6 +48,10 @@ export default function Home() {
       setError("大会名を入力してください");
       return;
     }
+    if (!category.trim()) {
+      setError("カテゴリを入力してください");
+      return;
+    }
     if (!csvText.trim()) {
       setError("CSVを入力またはファイルを選択してください");
       return;
@@ -98,12 +102,13 @@ export default function Home() {
       </div>
 
       <div className="space-y-2">
-        <label className="block text-sm font-medium">カテゴリ（任意）</label>
+        <label className="block text-sm font-medium">カテゴリ（必須）</label>
         <input
           className="w-full border rounded px-3 py-2"
           value={category}
           onChange={(e) => setCategory(e.target.value)}
           placeholder="例: 男子シングルス 35歳以上"
+          required
         />
       </div>
 
