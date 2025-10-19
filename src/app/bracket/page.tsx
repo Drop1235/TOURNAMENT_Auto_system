@@ -1,7 +1,9 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import useSWR from "swr";
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 type BracketData = {
@@ -44,6 +46,14 @@ function widthForRound(roundOrderIndex: number) {
 }
 
 export default function BracketPage() {
+  return (
+    <Suspense fallback={<main className="min-h-screen p-4 sm:p-6"><p>読み込み中...</p></main>}>
+      <BracketPageInner />
+    </Suspense>
+  );
+}
+
+function BracketPageInner() {
   const sp = useSearchParams();
   const t = sp.get("t") || sp.get("tournamentId") || "";
   const { data, error, isLoading, mutate } = useSWR<BracketData>(
