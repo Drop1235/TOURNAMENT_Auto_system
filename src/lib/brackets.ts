@@ -79,7 +79,20 @@ function slugify(s: string) {
 async function ensureTournament(tournamentId: string, name: string, size: number, categoryInput?: string) {
   const year = new Date().getFullYear();
   const category = (categoryInput && categoryInput.trim()) ? categoryInput.trim() : "General";
-  const uid = `${slugify(name)}_${slugify(category)}_${year}`;
+  const baseUid = `${slugify(name)}_${slugify(category)}_${year}`;
+  // Ensure uid is unique by appending a numeric suffix when needed
+  let uid = baseUid;
+  let suffix = 0;
+  // Try a few times in case of collisions from repeated initializations
+  // This avoids Unique constraint failed on fields: (uid)
+  // without changing the provided tournamentId
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const existing = await prisma.tournament.findUnique({ where: { uid } }).catch(() => null);
+    if (!existing) break;
+    suffix += 1;
+    uid = `${baseUid}_${suffix}`;
+  }
   const t = await prisma.tournament.upsert({
     where: { id: tournamentId },
     update: { name, size, category, year, uid },
