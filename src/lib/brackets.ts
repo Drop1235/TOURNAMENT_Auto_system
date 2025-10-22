@@ -1,4 +1,5 @@
 import { prisma } from "./prisma";
+import { upsertDataset } from "./opClient";
 
 type InitParticipant = { id: string; name: string; seed: number };
 
@@ -98,6 +99,8 @@ async function ensureTournament(tournamentId: string, name: string, size: number
     update: { name, size, category, year, uid },
     create: { id: tournamentId, name, size, category, year, uid, opLinked: false },
   });
+  // Save meta (category) to Supabase datasets for OP side consumption
+  try { await upsertDataset(tournamentId, "meta", { category }); } catch {}
   return t;
 }
 

@@ -301,8 +301,32 @@ function BracketPageInner() {
   return (
     <main className="min-h-screen p-4 sm:p-6">
       <div className="flex items-center justify-between mb-2">
-        <h1 className="text-xl font-semibold">{data?.tournament?.name ?? "トーナメント表"}</h1>
+        <h1 className="text-xl font-semibold">{data?.tournament?.name ?? "トーナメント表"} <span className="ml-2 text-xs text-gray-500 align-middle">v-2025-10-22-opbtn2</span></h1>
         <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              const base = process.env.NEXT_PUBLIC_OP_URL || "/op-web/";
+              const id = t || data?.tournament?.id || "";
+              const name = data?.tournament?.name || "";
+              if (!id) return;
+              const url = `${base}?tid=${encodeURIComponent(id)}&tname=${encodeURIComponent(name)}`;
+              window.open(url, "_blank");
+            }}
+            className="px-3 py-1.5 text-sm rounded bg-sky-600 text-white hover:bg-sky-700"
+            title="OP（MatchDrop）をこの大会で開く"
+          >
+            OPで開く
+          </button>
+          <a
+            href={(t || data?.tournament?.id) ? `/op-web/?tid=${encodeURIComponent(t || data?.tournament?.id || "")}&tname=${encodeURIComponent(data?.tournament?.name || "")}` : undefined}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-3 py-1.5 text-sm rounded border border-sky-600 text-sky-700 hover:bg-sky-50"
+            title="フォールバックリンク（/op-web/固定）"
+          >
+            OPリンク
+          </a>
           <button
             type="button"
             onClick={resetPlacements}
