@@ -3,8 +3,23 @@
 export const dynamic = "force-dynamic";
 
 import useSWR from "swr";
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useMemo, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
+
+// Defensive fallback for legacy bundles that might reference setBye in onClick
+// This prevents ReferenceError if an old chunk is still cached somewhere
+try {
+  if (typeof globalThis !== "undefined") {
+    const g: any = globalThis as any;
+    if (typeof g.setBye !== "function") {
+      g.setBye = () => {};
+    }
+  }
+} catch {}
+
+// Module-scope shim for legacy bundles that reference a free identifier `setBye`.
+// We reassign this after defining the real handler below.
+let setBye: (matchId: string, side: "A" | "B") => Promise<void> = async () => {};
 
 type BracketData = {
   tournament: { id: string; name: string; size: number; category?: string };
@@ -121,20 +136,6 @@ function BracketPageInner() {
         .map((x) => x.m);
       ordered.set(r, ord);
     }
-
-  async function setBye(matchId: string, side: "A" | "B") {
-    const res = await fetch("/api/draw/bye", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ matchId, side }),
-    });
-    if (!res.ok) {
-      const j = await res.json().catch(() => ({} as any));
-      alert(j?.error || "BYE 設定に失敗しました");
-      return;
-    }
-    await mutate();
-  }
 
     // Assign positions: round 0 stacked; following rounds use average Y of predecessors
     // X positions are cumulative widths per column
@@ -280,6 +281,23 @@ function BracketPageInner() {
     await mutate();
   }
 
+  const handleSetBye = useCallback(async (matchId: string, side: "A" | "B") => {
+    const res = await fetch("/api/draw/bye", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ matchId, side }),
+    });
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({} as any));
+      alert(j?.error || "BYE 設定に失敗しました");
+      return;
+    }
+    await mutate();
+  }, [mutate]);
+
+  // Assign to legacy shim for any old bundles that still reference `setBye` directly
+  setBye = handleSetBye;
+
   return (
     <main className="min-h-screen p-4 sm:p-6">
       <div className="flex items-center justify-between mb-2">
@@ -391,7 +409,7 @@ function BracketPageInner() {
                         onSaved={() => mutate()}
                         onDropPlace={placeParticipant}
                         onUnplace={unplaceParticipant}
-                        onSetBye={setBye}
+                        onSetBye={handleSetBye}
                         category={effectiveCategory || data.tournament.category}
                       />
                     </div>
