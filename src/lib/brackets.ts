@@ -128,11 +128,14 @@ async function createSingleElimMatches(tournamentId: string, participants: InitP
   for (let i = 0; i < pairs.length; i++) {
     const rIndex = 0;
     const rName = roundNameFrom(size, rIndex);
+    const [pa, pb] = pairs[i];
     const m = await prisma.match.create({
       data: {
         roundIndex: rIndex,
         roundName: rName,
         tournamentId,
+        sideAId: pa ? pa.id : null,
+        sideBId: pb ? pb.id : null,
       },
     });
     roundMatches[rIndex].push(m.id);
@@ -162,6 +165,31 @@ async function createSingleElimMatches(tournamentId: string, participants: InitP
   }
 
   // BYE処理はD&D配置後に行うため、ここでは保留
+}
+
+async function upsertMatchesDatasetToSupabase(tournamentId: string) {
+  // Build OP match objects from DB state and upsert to Supabase datasets:matches
+  const participants = await prisma.participant.findMany({ where: { tournamentId } });
+  const pById = new Map<string, string>();
+  for (const p of participants) pById.set(p.id, p.name);
+  const matches = await prisma.match.findMany({ where: { tournamentId } });
+  const opMatches: any[] = [];
+  let nextId = 1;
+  for (const m of matches) {
+    const aName = m.sideAId ? pById.get(m.sideAId) || "" : "";
+    const bName = m.sideBId ? pById.get(m.sideBId) || "" : "";
+    if (!aName || !bName) continue; // skip incomplete
+    opMatches.push({
+      id: nextId++,
+      playerA: aName,
+      playerB: bName,
+      gameFormat: "5game",
+      status: "Unassigned",
+      courtNumber: null,
+      rowPosition: null,
+    });
+  }
+  try { await upsertDataset(tournamentId, "matches", { matches: opMatches }); } catch {}
 }
 
 async function setMatchWinnerByBye(matchId: string, winnerId: string) {
@@ -194,6 +222,8 @@ export async function initSingleElim(
   await ensureTournament(tournamentId, tournamentName, size, category);
   await upsertParticipants(tournamentId, valid);
   await createSingleElimMatches(tournamentId, valid);
+  // after creating initial bracket, auto-export matches to Supabase for OP
+  await upsertMatchesDatasetToSupabase(tournamentId);
 }
 
 export async function updateMatchScore(matchId: string, scoreA: string, scoreB: string) {

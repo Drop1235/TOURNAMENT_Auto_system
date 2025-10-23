@@ -305,6 +305,28 @@ function BracketPageInner() {
         <div className="flex items-center gap-3">
           <button
             type="button"
+            onClick={async () => {
+              if (!t) return alert('トーナメントIDが不明です');
+              try {
+                const res = await fetch('/api/op/export', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ tournamentId: t }),
+                });
+                const j = await res.json().catch(() => ({} as any));
+                if (!res.ok) throw new Error(j?.error || 'エクスポートに失敗しました');
+                alert(`OPへ ${j?.count ?? 0} 件の対戦カードを保存しました\nOP画面で「更新」を押して取り込んでください`);
+              } catch (e: any) {
+                alert(e?.message || 'エクスポート中にエラー');
+              }
+            }}
+            className="px-3 py-1.5 text-sm rounded bg-emerald-600 text-white hover:bg-emerald-700"
+            title="現在の組み合わせをOP（Supabase datasets:matches）へ送る"
+          >
+            OPへ送る
+          </button>
+          <button
+            type="button"
             onClick={() => {
               const base = process.env.NEXT_PUBLIC_OP_URL || "/op-web/";
               const id = t || data?.tournament?.id || "";
@@ -318,15 +340,6 @@ function BracketPageInner() {
           >
             OPで開く
           </button>
-          <a
-            href={(t || data?.tournament?.id) ? `/op-web/?tid=${encodeURIComponent(t || data?.tournament?.id || "")}&tname=${encodeURIComponent(data?.tournament?.name || "")}` : undefined}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-3 py-1.5 text-sm rounded border border-sky-600 text-sky-700 hover:bg-sky-50"
-            title="フォールバックリンク（/op-web/固定）"
-          >
-            OPリンク
-          </a>
           <button
             type="button"
             onClick={resetPlacements}
