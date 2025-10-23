@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { upsertDataset } from "@/lib/opClient";
+import { upsertDataset, getDataset } from "@/lib/opClient";
 
 export async function POST(req: Request) {
   try {
@@ -14,6 +14,9 @@ export async function POST(req: Request) {
     for (const p of participants) pById.set(p.id, p.name);
 
     const matches = await prisma.match.findMany({ where: { tournamentId: t } });
+    // Read meta for gameFormat
+    const meta = await getDataset(t, "meta").catch(() => null);
+    const gameFormat = meta?.data?.gameFormat || "5game";
 
     // Build OP match objects. Include matches where both sides have an assigned participant.
     const opMatches: any[] = [];
@@ -26,7 +29,7 @@ export async function POST(req: Request) {
         id: nextId++,
         playerA: aName,
         playerB: bName,
-        gameFormat: "5game",
+        gameFormat,
         status: "Unassigned",
         courtNumber: null,
         rowPosition: null,

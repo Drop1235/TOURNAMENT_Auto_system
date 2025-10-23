@@ -77,7 +77,7 @@ function slugify(s: string) {
     .replace(/^-+|-+$/g, "");
 }
 
-async function ensureTournament(tournamentId: string, name: string, size: number, categoryInput?: string) {
+async function ensureTournament(tournamentId: string, name: string, size: number, categoryInput?: string, gameFormat?: string) {
   const year = new Date().getFullYear();
   const category = (categoryInput && categoryInput.trim()) ? categoryInput.trim() : "General";
   const baseUid = `${slugify(name)}_${slugify(category)}_${year}`;
@@ -99,8 +99,8 @@ async function ensureTournament(tournamentId: string, name: string, size: number
     update: { name, size, category, year, uid },
     create: { id: tournamentId, name, size, category, year, uid, opLinked: false },
   });
-  // Save meta (category) to Supabase datasets for OP side consumption
-  try { await upsertDataset(tournamentId, "meta", { category }); } catch {}
+  // Save meta (category, gameFormat) to Supabase datasets for OP side consumption
+  try { await upsertDataset(tournamentId, "meta", { category, gameFormat: gameFormat || "5game" }); } catch {}
   return t;
 }
 
@@ -167,7 +167,7 @@ async function createSingleElimMatches(tournamentId: string, participants: InitP
   // BYE処理はD&D配置後に行うため、ここでは保留
 }
 
-async function upsertMatchesDatasetToSupabase(tournamentId: string) {
+async function upsertMatchesDatasetToSupabase(tournamentId: string, gameFormat: string = "5game") {
   // Build OP match objects from DB state and upsert to Supabase datasets:matches
   const participants = await prisma.participant.findMany({ where: { tournamentId } });
   const pById = new Map<string, string>();
@@ -183,7 +183,7 @@ async function upsertMatchesDatasetToSupabase(tournamentId: string) {
       id: nextId++,
       playerA: aName,
       playerB: bName,
-      gameFormat: "5game",
+      gameFormat: gameFormat || "5game",
       status: "Unassigned",
       courtNumber: null,
       rowPosition: null,
@@ -215,15 +215,16 @@ export async function initSingleElim(
   tournamentId: string,
   participants: InitParticipant[],
   tournamentName: string,
-  category?: string
+  category?: string,
+  gameFormat?: string
 ) {
   const valid = participants.filter((p) => !!p && typeof p.seed === "number");
   const size = valid.length;
-  await ensureTournament(tournamentId, tournamentName, size, category);
+  await ensureTournament(tournamentId, tournamentName, size, category, gameFormat);
   await upsertParticipants(tournamentId, valid);
   await createSingleElimMatches(tournamentId, valid);
   // after creating initial bracket, auto-export matches to Supabase for OP
-  await upsertMatchesDatasetToSupabase(tournamentId);
+  await upsertMatchesDatasetToSupabase(tournamentId, gameFormat || "5game");
 }
 
 export async function updateMatchScore(matchId: string, scoreA: string, scoreB: string) {

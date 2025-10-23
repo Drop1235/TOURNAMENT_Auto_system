@@ -3,15 +3,17 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+type CategoryEntry = { id: string; name: string; csvText: string };
+
 export default function Home() {
   const router = useRouter();
   const [name, setName] = useState("");
-  const [category, setCategory] = useState("");
-  const [csvText, setCsvText] = useState("");
+  const [gameFormat, setGameFormat] = useState<string>("5game");
+  const [cats, setCats] = useState<CategoryEntry[]>([{ id: crypto.randomUUID(), name: "", csvText: "" }]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+  async function onFileChange(e: React.ChangeEvent<HTMLInputElement>, catId: string) {
     const file = e.target.files?.[0];
     if (!file) return;
     // Read as ArrayBuffer to support non-UTF8 encodings (e.g., Shift_JIS)
@@ -39,7 +41,7 @@ export default function Home() {
         text = sjis2;
       } catch {}
     }
-    setCsvText(text);
+    setCats((prev) => prev.map(c => c.id === catId ? { ...c, csvText: text } : c));
   }
 
   async function handleGenerate() {
@@ -48,38 +50,45 @@ export default function Home() {
       setError("大会名を入力してください");
       return;
     }
-    if (!category.trim()) {
-      setError("カテゴリを入力してください");
-      return;
-    }
-    if (!csvText.trim()) {
-      setError("CSVを入力またはファイルを選択してください");
+    const filled = cats.filter(c => c.name.trim() && c.csvText.trim());
+    if (!filled.length) {
+      setError("カテゴリとCSVを入力してください（複数可）");
       return;
     }
     try {
       setLoading(true);
-      // 1) parse participants
-      const pRes = await fetch("/api/participants/import-csv", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ csvText }),
-      });
-      if (!pRes.ok) throw new Error(await pRes.text());
-      const pJson = await pRes.json();
-      const participants = pJson.participants ?? [];
-      if (!participants.length) throw new Error("参加者が取得できませんでした");
+      const created: { category: string; tournamentId: string }[] = [];
+      for (const entry of filled) {
+        // 1) parse participants per category
+        const pRes = await fetch("/api/participants/import-csv", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ csvText: entry.csvText }),
+        });
+        if (!pRes.ok) throw new Error(await pRes.text());
+        const pJson = await pRes.json();
+        const participants = pJson.participants ?? [];
+        if (!participants.length) throw new Error(`参加者が取得できませんでした: ${entry.name}`);
 
-      // 2) init bracket
-      const bRes = await fetch("/api/bracket/init", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tournamentName: name.trim(), category: category.trim(), participants }),
-      });
-      if (!bRes.ok) throw new Error(await bRes.text());
-      const { tournamentId } = await bRes.json();
+        // 2) init bracket per category
+        const bRes = await fetch("/api/bracket/init", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tournamentName: name.trim(), category: `${entry.name}`.trim(), gameFormat, participants }),
+        });
+        if (!bRes.ok) throw new Error(await bRes.text());
+        const { tournamentId } = await bRes.json();
+        created.push({ category: entry.name, tournamentId });
+      }
 
-      // 3) navigate to bracket
-      router.push(`/bracket?t=${encodeURIComponent(tournamentId)}`);
+      // 3) navigate to first created, and alert summary
+      if (created.length) {
+        const first = created[0];
+        if (created.length > 1) {
+          alert(`作成しました: \n${created.map(c => `${c.category}: ${c.tournamentId}`).join("\n")}`);
+        }
+        router.push(`/bracket?t=${encodeURIComponent(first.tournamentId)}`);
+      }
     } catch (e: any) {
       setError(e?.message || "エラーが発生しました");
     } finally {
@@ -101,28 +110,73 @@ export default function Home() {
         />
       </div>
 
+      {/* 試合形式（OP と同じ選択肢） */}
       <div className="space-y-2">
-        <label className="block text-sm font-medium">カテゴリ（必須）</label>
-        <input
+        <label className="block text-sm font-medium">試合形式</label>
+        <select
           className="w-full border rounded px-3 py-2"
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
-          placeholder="例: 男子シングルス 35歳以上"
-          required
-        />
+          value={gameFormat}
+          onChange={(e) => setGameFormat(e.target.value)}
+        >
+          <option value="5game">5G</option>
+          <option value="4game1set">4G1set</option>
+          <option value="6game1set">6G1set</option>
+          <option value="6game1set_ntb">6G1set NoTB</option>
+          <option value="8game1set">8G-Pro</option>
+          <option value="4game2set">4G2set+10MTB</option>
+          <option value="6game2set">6G2set+10MTB</option>
+          <option value="4game3set">4G3set</option>
+          <option value="6game3set">6G3set</option>
+        </select>
       </div>
 
-      <div className="space-y-2">
-        <label className="block text-sm font-medium">CSV（ヘッダ: No,氏名）</label>
-        <textarea
-          className="w-full h-48 border rounded px-3 py-2 font-mono"
-          value={csvText}
-          onChange={(e) => setCsvText(e.target.value)}
-          placeholder={`No,氏名\n1,田中 太郎\n2,山田 花子`}
-        />
-        <div>
-          <input type="file" accept=".csv" onChange={onFileChange} />
+      {/* カテゴリ × 複数（各カテゴリごとにCSVを設定） */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <label className="block text-sm font-medium">カテゴリと参加者CSV（複数追加可）</label>
+          <button
+            type="button"
+            className="text-sm px-2 py-1 rounded bg-gray-200 hover:bg-gray-300"
+            onClick={() => setCats(prev => [...prev, { id: crypto.randomUUID(), name: "", csvText: "" }])}
+          >
+            + 追加
+          </button>
         </div>
+
+        {cats.map((c, idx) => (
+          <div key={c.id} className="border rounded p-3 bg-white/60 space-y-2">
+            <div className="flex items-center gap-2">
+              <input
+                className="flex-1 border rounded px-3 py-2"
+                value={c.name}
+                onChange={(e) => setCats(prev => prev.map(x => x.id === c.id ? { ...x, name: e.target.value } : x))}
+                placeholder={`例: 10歳以下男子シングルス（${idx+1}）`}
+                required
+              />
+              {cats.length > 1 && (
+                <button
+                  type="button"
+                  className="px-2 py-1 text-sm rounded bg-red-100 text-red-700 hover:bg-red-200"
+                  onClick={() => setCats(prev => prev.filter(x => x.id !== c.id))}
+                >
+                  削除
+                </button>
+              )}
+            </div>
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">CSV（ヘッダ: No,氏名）</label>
+              <textarea
+                className="w-full h-40 border rounded px-3 py-2 font-mono"
+                value={c.csvText}
+                onChange={(e) => setCats(prev => prev.map(x => x.id === c.id ? { ...x, csvText: e.target.value } : x))}
+                placeholder={`No,氏名\n1,田中 太郎\n2,山田 花子`}
+              />
+              <div>
+                <input type="file" accept=".csv" onChange={(e) => onFileChange(e, c.id)} />
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
 
       {error && <p className="text-red-600 text-sm">{error}</p>}
@@ -132,7 +186,7 @@ export default function Home() {
         onClick={handleGenerate}
         disabled={loading}
       >
-        {loading ? "生成中..." : "ドロー生成"}
+        {loading ? "生成中..." : "ドロー生成（各カテゴリごと）"}
       </button>
     </main>
   );
