@@ -80,13 +80,16 @@ export default function Home() {
         created.push({ category: entry.name, tournamentId });
       }
 
-      // 3) navigate to first created, and alert summary
+      // 3) navigate to multi view when multiple created; otherwise open the single bracket
       if (created.length) {
         const first = created[0];
         if (created.length > 1) {
           alert(`作成しました: \n${created.map(c => `${c.category}: ${c.tournamentId}`).join("\n")}`);
+          const ids = created.map(c => c.tournamentId).join(",");
+          router.push(`/brackets?ids=${encodeURIComponent(ids)}&active=${encodeURIComponent(first.tournamentId)}`);
+        } else {
+          router.push(`/bracket?t=${encodeURIComponent(first.tournamentId)}`);
         }
-        router.push(`/bracket?t=${encodeURIComponent(first.tournamentId)}`);
       }
     } catch (e: any) {
       setError(e?.message || "エラーが発生しました");
