@@ -3,7 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import useSWR from "swr";
-import { Suspense, useMemo, useState, useCallback } from "react";
+import { Suspense, useMemo, useState, useCallback, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 
 // Defensive fallback for legacy bundles that might reference setBye in onClick
@@ -75,6 +75,21 @@ function BracketPageInner() {
     t ? `/api/bracket?tournamentId=${encodeURIComponent(t)}` : null,
     fetcher
   );
+
+  const [gameFormat, setGameFormat] = useState<string>("5game");
+  useEffect(() => {
+    let aborted = false;
+    async function load() {
+      if (!t) return;
+      try {
+        const res = await fetch(`/api/bracket/meta?tournamentId=${encodeURIComponent(t)}`);
+        const j = await res.json();
+        if (!aborted && j?.meta?.gameFormat) setGameFormat(j.meta.gameFormat);
+      } catch {}
+    }
+    load();
+    return () => { aborted = true; };
+  }, [t]);
 
   const byId = useMemo(() => {
     const map = new Map<string, { id: string; name: string; seed?: number; no?: number }>();
@@ -301,8 +316,39 @@ function BracketPageInner() {
   return (
     <main className="min-h-screen p-4 sm:p-6">
       <div className="flex items-center justify-between mb-2">
-        <h1 className="text-xl font-semibold">{data?.tournament?.name ?? "トーナメント表"} <span className="ml-2 text-xs text-gray-500 align-middle">v-2025-10-22-opbtn2</span></h1>
+        <h1 className="text-xl font-semibold">{data?.tournament?.name ?? "トーナメント表"} <span className="ml-2 text-xs text-gray-500 align-middle">v-2025-10-23-format</span></h1>
         <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-gray-600">試合形式</span>
+            <select
+              className="border rounded px-2 py-1"
+              value={gameFormat}
+              onChange={async (e) => {
+                const next = e.target.value;
+                const prev = gameFormat;
+                setGameFormat(next);
+                try {
+                  await fetch("/api/bracket/meta", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ tournamentId: t, gameFormat: next }),
+                  });
+                } catch {
+                  setGameFormat(prev);
+                }
+              }}
+            >
+              <option value="5game">5G</option>
+              <option value="4game1set">4G1set</option>
+              <option value="6game1set">6G1set</option>
+              <option value="6game1set_ntb">6G1set NoTB</option>
+              <option value="8game1set">8G-Pro</option>
+              <option value="4game2set">4G2set+10MTB</option>
+              <option value="6game2set">6G2set+10MTB</option>
+              <option value="4game3set">4G3set</option>
+              <option value="6game3set">6G3set</option>
+            </select>
+          </div>
           <button
             type="button"
             onClick={async () => {
