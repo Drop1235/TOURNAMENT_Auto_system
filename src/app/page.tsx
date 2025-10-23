@@ -3,13 +3,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-type CategoryEntry = { id: string; name: string; csvText: string };
+type CategoryEntry = { id: string; gameFormat: string; name: string; csvText: string };
 
 export default function Home() {
   const router = useRouter();
   const [name, setName] = useState("");
-  const [gameFormat, setGameFormat] = useState<string>("5game");
-  const [cats, setCats] = useState<CategoryEntry[]>([{ id: crypto.randomUUID(), name: "", csvText: "" }]);
+  const [cats, setCats] = useState<CategoryEntry[]>([{ id: crypto.randomUUID(), gameFormat: "5game", name: "", csvText: "" }]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -50,9 +49,9 @@ export default function Home() {
       setError("大会名を入力してください");
       return;
     }
-    const filled = cats.filter(c => c.name.trim() && c.csvText.trim());
+    const filled = cats.filter(c => c.gameFormat && c.name.trim() && c.csvText.trim());
     if (!filled.length) {
-      setError("カテゴリとCSVを入力してください（複数可）");
+      setError("カテゴリと選手リストを入力してください（複数可）");
       return;
     }
     try {
@@ -74,7 +73,7 @@ export default function Home() {
         const bRes = await fetch("/api/bracket/init", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ tournamentName: name.trim(), category: `${entry.name}`.trim(), gameFormat, participants }),
+          body: JSON.stringify({ tournamentName: name.trim(), category: `${entry.name}`.trim(), gameFormat: entry.gameFormat, participants }),
         });
         if (!bRes.ok) throw new Error(await bRes.text());
         const { tournamentId } = await bRes.json();
@@ -98,7 +97,7 @@ export default function Home() {
 
   return (
     <main className="min-h-screen p-6 space-y-6">
-      <h1 className="text-2xl font-semibold">トーナメント設定</h1>
+      <h1 className="text-2xl font-semibold">トーナメント表詳細（複数追加可）</h1>
 
       <div className="space-y-2">
         <label className="block text-sm font-medium">大会名</label>
@@ -110,34 +109,14 @@ export default function Home() {
         />
       </div>
 
-      {/* 試合形式（OP と同じ選択肢） */}
-      <div className="space-y-2">
-        <label className="block text-sm font-medium">試合形式</label>
-        <select
-          className="w-full border rounded px-3 py-2"
-          value={gameFormat}
-          onChange={(e) => setGameFormat(e.target.value)}
-        >
-          <option value="5game">5G</option>
-          <option value="4game1set">4G1set</option>
-          <option value="6game1set">6G1set</option>
-          <option value="6game1set_ntb">6G1set NoTB</option>
-          <option value="8game1set">8G-Pro</option>
-          <option value="4game2set">4G2set+10MTB</option>
-          <option value="6game2set">6G2set+10MTB</option>
-          <option value="4game3set">4G3set</option>
-          <option value="6game3set">6G3set</option>
-        </select>
-      </div>
-
-      {/* カテゴリ × 複数（各カテゴリごとにCSVを設定） */}
+      {/* トーナメント（カテゴリ）× 複数。各エントリで [試合形式, カテゴリ, CSV] の順 */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <label className="block text-sm font-medium">カテゴリと参加者CSV（複数追加可）</label>
+          <label className="block text-sm font-medium">トーナメント表詳細（各項目：試合形式、カテゴリ、選手リスト）</label>
           <button
             type="button"
             className="text-sm px-2 py-1 rounded bg-gray-200 hover:bg-gray-300"
-            onClick={() => setCats(prev => [...prev, { id: crypto.randomUUID(), name: "", csvText: "" }])}
+            onClick={() => setCats(prev => [...prev, { id: crypto.randomUUID(), gameFormat: "5game", name: "", csvText: "" }])}
           >
             + 追加
           </button>
@@ -145,6 +124,27 @@ export default function Home() {
 
         {cats.map((c, idx) => (
           <div key={c.id} className="border rounded p-3 bg-white/60 space-y-2">
+            {/* 試合形式 */}
+            <div className="space-y-1">
+              <label className="block text-xs text-gray-600">試合形式</label>
+              <select
+                className="w-full border rounded px-3 py-2"
+                value={c.gameFormat}
+                onChange={(e) => setCats(prev => prev.map(x => x.id === c.id ? { ...x, gameFormat: e.target.value } : x))}
+              >
+                <option value="5game">5G</option>
+                <option value="4game1set">4G1set</option>
+                <option value="6game1set">6G1set</option>
+                <option value="6game1set_ntb">6G1set NoTB</option>
+                <option value="8game1set">8G-Pro</option>
+                <option value="4game2set">4G2set+10MTB</option>
+                <option value="6game2set">6G2set+10MTB</option>
+                <option value="4game3set">4G3set</option>
+                <option value="6game3set">6G3set</option>
+              </select>
+            </div>
+
+            {/* カテゴリ */}
             <div className="flex items-center gap-2">
               <input
                 className="flex-1 border rounded px-3 py-2"
@@ -163,8 +163,9 @@ export default function Home() {
                 </button>
               )}
             </div>
+            {/* CSV */}
             <div>
-              <label className="block text-xs text-gray-600 mb-1">CSV（ヘッダ: No,氏名）</label>
+              <label className="block text-xs text-gray-600 mb-1">選手リスト（No,氏名）</label>
               <textarea
                 className="w-full h-40 border rounded px-3 py-2 font-mono"
                 value={c.csvText}
