@@ -123,19 +123,19 @@ async function createSingleElimMatches(tournamentId: string, participants: InitP
   const roundMatches: string[][] = [];
   for (let r = 0; r < totalRounds; r++) roundMatches.push([]);
 
-  const pairs = pairingsBySeed(participants);
+  // Create empty matches for round 1 (no pre-assigned players)
+  const firstRoundCount = Math.ceil(size / 2);
   const firstRoundIds: string[] = [];
-  for (let i = 0; i < pairs.length; i++) {
+  for (let i = 0; i < firstRoundCount; i++) {
     const rIndex = 0;
     const rName = roundNameFrom(size, rIndex);
-    const [pa, pb] = pairs[i];
     const m = await prisma.match.create({
       data: {
         roundIndex: rIndex,
         roundName: rName,
         tournamentId,
-        sideAId: pa ? pa.id : null,
-        sideBId: pb ? pb.id : null,
+        sideAId: null,
+        sideBId: null,
       },
     });
     roundMatches[rIndex].push(m.id);

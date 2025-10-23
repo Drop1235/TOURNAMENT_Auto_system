@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, Suspense } from "react";
+import { useMemo, useState, Suspense, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 
 export default function BracketsPage() {
@@ -17,6 +17,30 @@ function BracketsInner() {
   const initial = (sp.get("active") || "").trim();
   const ids = useMemo(() => raw.split(",").map(s => s.trim()).filter(Boolean), [raw]);
   const [active, setActive] = useState<string>(initial && ids.includes(initial) ? initial : (ids[0] || ""));
+  const [labels, setLabels] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    let abort = false;
+    async function load() {
+      const ent = await Promise.all(ids.map(async (id) => {
+        try {
+          const res = await fetch(`/api/bracket?tournamentId=${encodeURIComponent(id)}`);
+          const j = await res.json();
+          const cat = j?.tournament?.category || "";
+          return [id, cat] as const;
+        } catch {
+          return [id, ""] as const;
+        }
+      }));
+      if (!abort) {
+        const map: Record<string, string> = {};
+        ent.forEach(([id, cat]) => { map[id] = cat || ""; });
+        setLabels(map);
+      }
+    }
+    if (ids.length) load();
+    return () => { abort = true; };
+  }, [ids.join(",")]);
 
   if (!ids.length) {
     return (
@@ -43,7 +67,7 @@ function BracketsInner() {
             className={`px-3 py-1.5 rounded text-sm border ${active === id ? "bg-black text-white border-black" : "bg-white hover:bg-gray-50 border-gray-300"}`}
             title={id}
           >
-            {shorten(id)}
+            {labels[id] ? labels[id] : shorten(id)}
           </button>
         ))}
       </div>
