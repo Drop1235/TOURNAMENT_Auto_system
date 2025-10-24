@@ -193,6 +193,31 @@ function BracketPageInner() {
     return maxY + BOX_H + PADDING_TOP;
   }, [layout, data]);
 
+  // Add-new-participant form state
+  const [newName, setNewName] = useState("");
+  const [newNo, setNewNo] = useState<string>("");
+
+  async function addParticipant() {
+    if (!t) return alert("トーナメントIDが不明です");
+    const name = newName.trim();
+    if (!name) return;
+    const noVal = newNo.trim();
+    try {
+      const res = await fetch("/api/participants/add", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tournamentId: t, name, no: noVal ? Number(noVal) : undefined }),
+      });
+      const j = await res.json().catch(() => ({} as any));
+      if (!res.ok) throw new Error(j?.error || "追加に失敗しました");
+      setNewName("");
+      setNewNo("");
+      await mutate();
+    } catch (e: any) {
+      alert(e?.message || "追加に失敗しました");
+    }
+  }
+
   // derive effective category: prefer tournament.category; if absent or 'General', infer common leading phrase from participant names
   const effectiveCategory = useMemo(() => {
     const explicit = data?.tournament?.category?.trim();
@@ -371,21 +396,7 @@ function BracketPageInner() {
           >
             OPへ送る
           </button>
-          <button
-            type="button"
-            onClick={() => {
-              const base = process.env.NEXT_PUBLIC_OP_URL || "/op-web/";
-              const id = t || data?.tournament?.id || "";
-              const name = data?.tournament?.name || "";
-              if (!id) return;
-              const url = `${base}?tid=${encodeURIComponent(id)}&tname=${encodeURIComponent(name)}`;
-              window.open(url, "_blank");
-            }}
-            className="px-3 py-1.5 text-sm rounded bg-sky-600 text-white hover:bg-sky-700"
-            title="OP（MatchDrop）をこの大会で開く"
-          >
-            OPで開く
-          </button>
+          {/* OPで開く は不要のため削除 */}
           <button
             type="button"
             onClick={resetPlacements}
@@ -413,6 +424,32 @@ function BracketPageInner() {
             {/* Unplaced panel */}
             <div className="w-64 shrink-0 border rounded bg-white/70 p-2 h-[calc(100vh-200px)] overflow-auto">
               <div className="font-medium text-sm mb-2">未配置</div>
+              {/* Add participant form */}
+              <div className="mb-3 space-y-1 text-xs">
+                <input
+                  className="w-full border rounded px-2 py-1"
+                  placeholder="氏名を追加"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                />
+                <div className="flex gap-2">
+                  <input
+                    className="w-20 border rounded px-2 py-1"
+                    placeholder="No"
+                    value={newNo}
+                    onChange={(e) => setNewNo(e.target.value)}
+                    inputMode="numeric"
+                  />
+                  <button
+                    type="button"
+                    onClick={addParticipant}
+                    className="px-2 py-1 rounded bg-black text-white disabled:opacity-50"
+                    disabled={!newName.trim()}
+                  >
+                    追加
+                  </button>
+                </div>
+              </div>
               <div className="space-y-2">
                 {unplaced.map((p) => (
                   <div

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 type CategoryEntry = { id: string; gameFormat: string; name: string; csvText: string };
 
@@ -100,7 +101,10 @@ export default function Home() {
 
   return (
     <main className="min-h-screen p-6 space-y-6">
-      <h1 className="text-2xl font-semibold">トーナメント表詳細（複数追加可）</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">トーナメント表詳細（複数追加可）</h1>
+        <Link href="/tournaments" className="text-sm px-3 py-1.5 rounded bg-gray-800 text-white hover:bg-black">トーナメント一覧</Link>
+      </div>
 
       <div className="space-y-2">
         <label className="block text-sm font-medium">大会名</label>
