@@ -218,6 +218,19 @@ function BracketPageInner() {
     }
   }
 
+  async function deleteParticipant(pid: string) {
+    const ok = window.confirm("この参加者を削除します。よろしいですか？\n※ 配置済みの場合は削除できません");
+    if (!ok) return;
+    try {
+      const res = await fetch(`/api/participants/${encodeURIComponent(pid)}`, { method: "DELETE" });
+      const j = await res.json().catch(() => ({} as any));
+      if (!res.ok) throw new Error(j?.error || "削除に失敗しました");
+      await mutate();
+    } catch (e: any) {
+      alert(e?.message || "削除に失敗しました");
+    }
+  }
+
   // derive effective category: prefer tournament.category; if absent or 'General', infer common leading phrase from participant names
   const effectiveCategory = useMemo(() => {
     const explicit = data?.tournament?.category?.trim();
@@ -460,7 +473,15 @@ function BracketPageInner() {
                     title={`${p.no ?? ""} ${displayName(p.name)}`}
                   >
                     <span className="inline-flex items-center justify-center w-10 text-xs bg-gray-200 rounded">{p.no ?? ""}</span>
-                    <span className="truncate">{displayName(p.name)}</span>
+                    <span className="truncate flex-1">{displayName(p.name)}</span>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); deleteParticipant(p.id); }}
+                      className="text-xs px-2 py-1 rounded bg-red-100 text-red-700 hover:bg-red-200"
+                      title="この参加者を削除"
+                    >
+                      削除
+                    </button>
                   </div>
                 ))}
                 {!unplaced.length && <div className="text-xs text-gray-500">未配置の参加者はいません</div>}
